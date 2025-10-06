@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ayuda de Tempo Fader (±10%) — v2 con marcas 1%/2%</title>
+<style>
+  :root{
+    --bg:#0b0f14; --card:#121821; --ink:#e8f0ff; --muted:#9db1d7aa; --accent:#7aa2ff; --ok:#5bd38f; --warn:#ffd166; --bad:#ff6b6b;
+    --tick-minor:#32455f; --tick-major:#6f88b0; --tick-zero:#7aa2ff;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink); font-family:system-ui,-apple-system,Segoe UI,Roboto,Inter,Helvetica,Arial,sans-serif;
+    display:grid; place-items:center; min-height:100svh; padding:24px;
+  }
+  .wrap{
+    width:min(100%,1020px); display:grid; gap:20px;
+    grid-template-columns: 1.2fr 1fr;
+  }
+  .card{
+    background:linear-gradient(180deg,#0f141d, #0b111a);
+    border:1px solid #1d2838; border-radius:16px; padding:20px; box-shadow:0 10px 30px #00000055;
+  }
+  h1{font-size:1.25rem; margin:0 0 6px}
+  p.small{color:var(--muted); margin:0 0 12px; font-size:.95rem}
+  label{display:block; font-size:.95rem; color:#cfe1ff; margin:12px 0 6px}
+  input[type="number"]{
+    width:100%; padding:12px 14px; border-radius:10px; border:1px solid #243249; background:#0e1520; color:var(--ink);
+    outline:none;
+  }
+  input[type="number"]:focus{border-color:#395783; box-shadow:0 0 0 4px #1a2a421f}
+  .grid2{display:grid; grid-template-columns:1fr 1fr; gap:12px}
+  .result{
+    display:grid; gap:10px; padding:14px; border-radius:12px; background:#0e1520; border:1px dashed #2a3952;
+  }
+  .kpi{
+    display:flex; align-items:baseline; gap:10px; flex-wrap:wrap;
+  }
+  .kpi b{font-size:2rem; letter-spacing:.5px}
+  .pill{display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-size:.9rem; border:1px solid #2a3952; background:#0f1723}
+  .pill.ok{border-color:#2d6b4f; color:#c7f5df; background:#0d1d16}
+  .pill.warn{border-color:#6e5820; color:#ffe6a6; background:#19150a}
+  .pill.bad{border-color:#6b2d2d; color:#ffd2d2; background:#1d0d0d}
+  .muted{color:var(--muted)}
+  .note{font-size:.92rem; color:#b7c9f2}
+  .btn{
+    appearance:none; border:1px solid #2a3952; background:#101827; color:var(--ink);
+    padding:10px 12px; border-radius:10px; cursor:pointer;
+  }
+  /* Fader */
+  .fader-wrap{
+    display:grid; grid-template-columns: 1fr auto; gap:24px; align-items:center;
+  }
+  .fader{
+    position:relative; width:120px; height:460px; background:#0c121b; border-radius:14px; border:1px solid #233149; padding:18px 24px;
+    box-shadow: inset 0 0 0 2px #0a0f18, inset 0 10px 30px #00000066;
+  }
+  .track{
+    position:absolute; left:58%; transform:translateX(-50%); top:24px; bottom:24px; width:6px; background:#1d2838; border-radius:6px;
+    box-shadow: inset 0 0 0 1px #2a3952;
+  }
+  .tick{
+    position:absolute; left:58%; transform:translateX(-50%);
+    height:1px; background:var(--tick-minor); opacity:.9;
+  }
+  .tick::after{
+    content:attr(data-label);
+    position:absolute; right:58px; top:-9px; font-size:.85rem; color:#89a6db;
+    letter-spacing:.2px;
+  }
+  .tick.minor{ width:42px; background:var(--tick-minor); opacity:.65 }
+  .tick.major{ width:64px; background:var(--tick-major); box-shadow:0 0 0 1px #22324a55 }
+  .tick.zero{ width:76px; height:2px; background:var(--tick-zero); box-shadow:0 0 12px #7aa2ff55 }
+  .tick.major:not(.zero)::after{ color:#9fb8df }
+  .tick.minor::after{ content:'' } /* sin etiqueta en las de 1% */
+  .thumb{
+    --y:50%;
+    position:absolute; left:58%; transform:translate(-50%, calc(var(--y) * 1px));
+    width:74px; height:18px; background:linear-gradient(180deg,#9fb8ff,#6e8fe6); border-radius:8px; box-shadow:0 2px 10px #0009;
+    border:1px solid #1d2a44;
+  }
+  .ghost{
+    position:absolute; left:58%; transform:translate(-50%, calc(var(--y) * 1px)); width:84px; height:22px; border-radius:9px;
+    border:1px dashed #7aa2ff77; background:transparent; pointer-events:none;
+  }
+  .legend{font-size:.9rem; color:#9db1d7}
+  .right .card{height:100%}
+  .copy{text-align:center; color:#6f86ad; font-size:.85rem; margin-top:8px}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <section class="card">
+      <h1>Calculadora de Tempo Fader (±10%)</h1>
+      <p class="small">Introduce los BPM. El <b>izquierdo</b> es el tema que ya está sonando. El <b>derecho</b> es el tema que quieres cuadrar.</p>
+
+      <div class="grid2">
+        <div>
+          <label for="bpmL">BPM Izquierda (referencia)</label>
+          <input id="bpmL" type="number" inputmode="decimal" min="30" max="300" step="0.01" placeholder="p.ej. 128.00" value="128.00">
+        </div>
+        <div>
+          <label for="bpmR">BPM Derecha (original)</label>
+          <input id="bpmR" type="number" inputmode="decimal" min="30" max="300" step="0.01" placeholder="p.ej. 125.00" value="125.00">
+        </div>
+      </div>
+
+      <div class="result" id="resultBox">
+        <div class="kpi">
+          <span class="pill">Rango del plato: ±10%</span>
+          <span id="statusPill" class="pill ok">Dentro de rango</span>
+        </div>
+        <div class="kpi">
+          <span class="muted">Ajuste necesario</span>
+          <b id="pctOut">+0.00%</b>
+          <span class="muted">para que la derecha = izquierda</span>
+        </div>
+        <div class="kpi">
+          <span class="muted">BPM resultante (derecha):</span>
+          <b id="bpmMatched">0.00</b>
+        </div>
+        <p class="note">Las marcas del fader: <b>2%</b> (más largas y numeradas), <b>1%</b> (más cortas y discretas). 0% resaltado.</p>
+        <button class="btn" id="zeroBtn">Poner valores de ejemplo (128 → 125)</button>
+      </div>
+    </section>
+
+    <section class="right">
+      <div class="card">
+        <h1>¿Dónde colocar el fader?</h1>
+        <p class="small">Regleta vertical tipo giradiscos: <b>-10%</b> arriba, <b>0%</b> en medio (quartz), <b>+10%</b> abajo.</p>
+
+        <div class="fader-wrap">
+          <div class="fader" aria-label="Fader visual">
+            <div class="track" aria-hidden="true"></div>
+
+            <!-- ticks se generan por JS para cada 1% / 2% -->
+            <div id="ticksContainer"></div>
+
+            <!-- Marcador “dónde colocarlo” (ghost) y posición actual calculada (thumb) -->
+            <div class="ghost" id="ghost" style="--y: 0;"></div>
+            <div class="thumb" id="thumb" style="--y: 0;"></div>
+          </div>
+
+          <div class="legend">
+            <p><b>Coloca el fader</b> de la derecha en la posición marcada (borde discontinuo). La pastilla azul indica el mismo punto en la escala.</p>
+            <p class="muted">Conversión: <span id="legendText">0%</span> → desde el centro (quartz).</p>
+          </div>
+        </div>
+      </div>
+      <p class="copy">Hecho para cuadrar rápido sin bailar con el error de dedo.</p>
+    </section>
+  </div>
+
+<script>
+(function(){
+  const bpmL = document.getElementById('bpmL');
+  const bpmR = document.getElementById('bpmR');
+  const pctOut = document.getElementById('pctOut');
+  const bpmMatched = document.getElementById('bpmMatched');
+  const statusPill = document.getElementById('statusPill');
+  const thumb = document.getElementById('thumb');
+  const ghost = document.getElementById('ghost');
+  const legend = document.getElementById('legendText');
+  const zeroBtn = document.getElementById('zeroBtn');
+  const ticksContainer = document.getElementById('ticksContainer');
+
+  const FADER_H = 460;
+  const PAD_V = 24;           // padding top/bottom interno del fader
+  const TRACK_H = FADER_H - PAD_V*2; // altura útil para ticks
+  const clamp = (v,min,max)=>Math.min(max,Math.max(min,v));
+
+  // Crear ticks de -10% a +10% cada 1%, con mayor énfasis en múltiplos de 2%
+  function buildTicks(){
+    ticksContainer.innerHTML = '';
+    for(let p = -10; p <= 10; p++){
+      const isZero = (p === 0);
+      const isMajor = (p % 2 === 0);
+      const tick = document.createElement('div');
+      tick.className = 'tick ' + (isZero ? 'zero' : (isMajor ? 'major' : 'minor'));
+
+      // posición: p=-10 → top; p=+10 → bottom
+      const yNorm = (p + 10) / 20;           // 0..1
+      const yPx = PAD_V + yNorm * TRACK_H;   // posición absoluta dentro del fader
+      tick.style.top = (yPx|0) + 'px';
+
+      // etiqueta sólo en las de 2%, incluido 0%
+      if(isZero){
+        tick.setAttribute('data-label','0%');
+      } else if(isMajor){
+        tick.setAttribute('data-label', (p>0? '+'+p : String(p)) + '%');
+      }
+      ticksContainer.appendChild(tick);
+    }
+  }
+
+  function fmtPct(x){
+    const s = (x>=0?'+':'') + (x*100).toFixed(2) + '%';
+    return s;
+  }
+
+  function update(){
+    const L = parseFloat(bpmL.value);
+    const R = parseFloat(bpmR.value);
+    if(!(L>0 && R>0)){ return; }
+
+    // pitch requerido para que R → L
+    // p = (L/R) - 1
+    const p = (L/R) - 1;
+
+    // Dentro de rango ±10%?
+    const inRange = Math.abs(p) <= 0.10 + 1e-9;
+
+    // Visuales y textos
+    pctOut.textContent = fmtPct(p);
+    bpmMatched.textContent = (R*(1+p)).toFixed(2);
+
+    statusPill.textContent = inRange ? 'Dentro de rango' : 'Fuera de rango (excede ±10%)';
+    statusPill.className = 'pill ' + (inRange ? (Math.abs(p)>0.08?'warn':'ok') : 'bad');
+
+    // Mapear -10%..+10% a la regleta (de arriba a abajo)
+    // y_norm: 0 en arriba (-10%), 1 en abajo (+10%)
+    const y_norm = (p + 0.10) / 0.20;
+    const y_px = clamp(y_norm,0,1) * (FADER_H - 48); // alto fader - paddings aprox para el thumb
+    thumb.style.setProperty('--y', (24 + y_px) );  // 24px padding top
+    ghost.style.setProperty('--y', (24 + y_px) );
+
+    legend.textContent = fmtPct(p) + ' desde el centro';
+  }
+
+  bpmL.addEventListener('input', update);
+  bpmR.addEventListener('input', update);
+  zeroBtn.addEventListener('click', ()=>{
+    bpmL.value = 128.00;
+    bpmR.value = 125.00;
+    update();
+  });
+
+  buildTicks();
+  update();
+})();
+</script>
+</body>
+</html>
